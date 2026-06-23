@@ -6,37 +6,99 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AR Card</title>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+
+<!-- Import map: tells browser where to find "three" when MindAR imports it -->
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js"}}
+</script>
+
+<!-- Load MindAR + Three.js as ES module, expose as globals -->
+<script type="module">
+import * as THREE from 'three';
+import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+window.THREE = THREE;
+window.MINDAR = { IMAGE: { MindARThree } };
+window._arReady = true;
+</script>
+
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#000;overflow:hidden;width:100vw;height:100vh}
-#ui{position:fixed;bottom:28px;left:0;right:0;display:flex;justify-content:center;z-index:10;pointer-events:none}
-#status{padding:10px 22px;background:rgba(0,0,0,.65);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font-family:-apple-system,sans-serif;font-size:14px;border-radius:24px;border:1px solid rgba(255,255,255,.12);transition:background .4s}
-#status.ok{background:rgba(0,140,0,.7)}
-#splash{position:fixed;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:18px}
-.spin{width:40px;height:40px;border:3px solid #333;border-top-color:#FFD700;border-radius:50%;animation:sp .8s linear infinite}
+html,body{background:#000;overflow:hidden;width:100%;height:100%}
+
+#splash{
+  position:fixed;inset:0;background:#000;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  z-index:100;gap:20px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+
+.spin{
+  width:44px;height:44px;
+  border:3px solid #222;border-top-color:#FFD700;
+  border-radius:50%;animation:sp .9s linear infinite;
+}
 @keyframes sp{to{transform:rotate(360deg)}}
-#splash-name{color:#FFD700;font-family:-apple-system,sans-serif;font-size:22px;font-weight:700;display:none}
-#splash-msg{color:#aaa;font-family:-apple-system,sans-serif;font-size:14px;text-align:center;max-width:260px;line-height:1.6}
-#tap-btn{display:none;background:#FFD700;color:#000;border:none;border-radius:14px;padding:18px 44px;font-size:18px;font-weight:700;font-family:-apple-system,sans-serif;cursor:pointer}
+
+#splash-name{
+  color:#FFD700;
+  font-family:-apple-system,sans-serif;
+  font-size:26px;font-weight:700;
+  display:none;text-align:center;
+  padding:0 24px;
+}
+#splash-msg{
+  color:#888;
+  font-family:-apple-system,sans-serif;
+  font-size:15px;text-align:center;
+  max-width:280px;line-height:1.7;
+}
+#tap-hint{
+  display:none;
+  color:rgba(255,215,0,0.7);
+  font-family:-apple-system,sans-serif;
+  font-size:13px;letter-spacing:1px;
+  text-transform:uppercase;
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+#status{
+  position:fixed;bottom:28px;left:0;right:0;
+  display:flex;justify-content:center;
+  z-index:10;pointer-events:none;
+}
+#status-text{
+  padding:10px 22px;
+  background:rgba(0,0,0,.65);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  color:#fff;font-family:-apple-system,sans-serif;font-size:14px;
+  border-radius:24px;border:1px solid rgba(255,255,255,.12);
+  transition:background .4s;
+}
+#status-text.ok{background:rgba(0,140,0,.7)}
 </style>
 </head>
 <body>
-<div id="splash">
+
+<div id="splash" onclick="handleTap()">
   <div class="spin" id="spin"></div>
   <div id="splash-name"></div>
   <div id="splash-msg">Wird geladen...</div>
-  <button id="tap-btn" onclick="startAR()">AR starten</button>
+  <div id="tap-hint">Tippe irgendwo</div>
 </div>
-<div id="ui"><div id="status">Visitenkarte anvisieren...</div></div>
+
+<div id="status"><div id="status-text">Visitenkarte anvisieren...</div></div>
+
 <script>
 var SB='https://lzzfaoekhnggeixgumfg.supabase.co',BKT='ar-cards';
-var CFG=null,mindBuf=null,started=false;
+var CFG=null,mindBuf=null,started=false,dataReady=false;
 var id=new URLSearchParams(location.search).get('id');
+
 function msg(t){document.getElementById('splash-msg').textContent=t;}
-function showBtn(){document.getElementById('spin').style.display='none';document.getElementById('tap-btn').style.display='block';}
+
 async function loadData(){
-  if(!id){msg('Fehler: Keine ID.');return;}
+  if(!id){msg('Fehler: Keine ID in der URL.');return;}
   try{
     msg('Lade Kartendaten...');
     var [cr,mr]=await Promise.all([
@@ -47,12 +109,19 @@ async function loadData(){
     if(!mr.ok)throw new Error('Mind '+mr.status);
     CFG=await cr.json();
     mindBuf=await mr.arrayBuffer();
-    var n=document.getElementById('splash-name');
-    n.textContent=CFG.name;n.style.display='block';
-    msg('Tippe um die Kamera zu starten');
-    showBtn();
-  }catch(e){msg('Fehler: '+e.message);console.error(e);}
+    var nm=document.getElementById('splash-name');
+    nm.textContent=CFG.name;nm.style.display='block';
+    document.getElementById('spin').style.display='none';
+    msg('');
+    document.getElementById('tap-hint').style.display='block';
+    dataReady=true;
+  }catch(e){
+    msg('Fehler: '+e.message);
+    document.getElementById('spin').style.display='none';
+    console.error(e);
+  }
 }
+
 function rrect(ctx,x,y,w,h,r){
   ctx.beginPath();
   ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
@@ -61,6 +130,7 @@ function rrect(ctx,x,y,w,h,r){
   ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);
   ctx.closePath();
 }
+
 function makeTex(text,opts){
   var o=Object.assign({w:512,h:128,sz:72,color:'#fff',bg:null,bold:true},opts||{});
   var c=document.createElement('canvas');c.width=o.w;c.height=o.h;
@@ -72,24 +142,23 @@ function makeTex(text,opts){
   ctx.fillText(text,o.w/2,o.h/2);
   return new THREE.CanvasTexture(c);
 }
-function waitForMindAR(){
-  return new Promise(function(resolve,reject){
-    if(window.MINDAR&&window.MINDAR.IMAGE){resolve();return;}
-    var t=setTimeout(function(){reject(new Error('MindAR Timeout - Seite neu laden'));},20000);
-    var iv=setInterval(function(){
-      if(window.MINDAR&&window.MINDAR.IMAGE){clearInterval(iv);clearTimeout(t);resolve();}
-    },200);
-  });
+
+function handleTap(){
+  if(!dataReady){return;}
+  if(!window.MINDAR||!window.MINDAR.IMAGE){
+    msg('AR-Bibliothek ladet noch...');return;
+  }
+  startAR();
 }
+
 async function startAR(){
-  if(started||!CFG||!mindBuf)return;
+  if(started)return;
   started=true;
-  document.getElementById('tap-btn').style.display='none';
+  document.getElementById('tap-hint').style.display='none';
   document.getElementById('splash-name').style.display='none';
   document.getElementById('spin').style.display='block';
   msg('Kamera startet...');
   try{
-    await waitForMindAR();
     var T=window.THREE;
     var mindUrl=URL.createObjectURL(new Blob([mindBuf],{type:'application/octet-stream'}));
     var ar=new window.MINDAR.IMAGE.MindARThree({
@@ -99,7 +168,7 @@ async function startAR(){
     });
     var {renderer,scene,camera}=ar;
     renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-    scene.add(new THREE.HemisphereLight(0xffffff,0x333333,2));
+    scene.add(new T.HemisphereLight(0xffffff,0x333333,2));
     var anchor=ar.addAnchor(0),g=anchor.group;
 
     var nm=new T.Mesh(
@@ -115,9 +184,9 @@ async function startAR(){
     }
 
     var BTNS=[
-      {label:'Website',bg:'#111177',url:CFG.links.website},
-      {label:'Spotify',bg:'#1DB954',url:CFG.links.spotify},
-      {label:'Instagram',bg:'#C13584',url:CFG.links.instagram}
+      {label:'Website',bg:'#111177',url:CFG.links&&CFG.links.website},
+      {label:'Spotify',bg:'#1DB954',url:CFG.links&&CFG.links.spotify},
+      {label:'Instagram',bg:'#C13584',url:CFG.links&&CFG.links.instagram}
     ].filter(function(b){return b.url&&b.url.startsWith('http');});
 
     var clickables=[],bW=0.068,bH=0.02,gap=0.006;
@@ -143,7 +212,7 @@ async function startAR(){
     renderer.domElement.addEventListener('touchend',onTap);
     renderer.domElement.addEventListener('click',onTap);
 
-    var st=document.getElementById('status');
+    var st=document.getElementById('status-text');
     anchor.onTargetFound=function(){st.textContent='Karte erkannt!';st.classList.add('ok');};
     anchor.onTargetLost=function(){st.textContent='Visitenkarte anvisieren...';st.classList.remove('ok');};
 
@@ -153,9 +222,11 @@ async function startAR(){
   }catch(e){
     msg('Fehler: '+e.message);
     document.getElementById('spin').style.display='none';
+    started=false;
     console.error(e);
   }
 }
+
 loadData();
 </script>
 </body>
