@@ -18,7 +18,6 @@ import * as THREE from 'three';
 import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
 window.THREE = THREE;
 window.MINDAR = { IMAGE: { MindARThree } };
-window._arReady = true;
 </script>
 
 <style>
@@ -100,14 +99,15 @@ function msg(t){document.getElementById('splash-msg').textContent=t;}
 async function loadData(){
   if(!id){msg('Fehler: Keine ID in der URL.');return;}
   try{
-    msg('Lade Kartendaten...');
+    msg('Karte wird geladen...');
     var [cr,mr]=await Promise.all([
       fetch(SB+'/storage/v1/object/public/'+BKT+'/'+id+'.json'),
       fetch(SB+'/storage/v1/object/public/'+BKT+'/'+id+'.mind')
     ]);
-    if(!cr.ok)throw new Error('Config '+cr.status);
-    if(!mr.ok)throw new Error('Mind '+mr.status);
+    if(!cr.ok)throw new Error('Karte nicht gefunden ('+cr.status+')');
+    if(!mr.ok)throw new Error('AR-Daten fehlen ('+mr.status+')');
     CFG=await cr.json();
+    msg('AR-Daten werden verarbeitet...');
     mindBuf=await mr.arrayBuffer();
     var nm=document.getElementById('splash-name');
     nm.textContent=CFG.name;nm.style.display='block';
@@ -146,7 +146,7 @@ function makeTex(text,opts){
 function handleTap(){
   if(!dataReady){return;}
   if(!window.MINDAR||!window.MINDAR.IMAGE){
-    msg('AR-Bibliothek ladet noch...');return;
+    msg('AR-Bibliothek lädt noch, bitte warten...');return;
   }
   startAR();
 }
