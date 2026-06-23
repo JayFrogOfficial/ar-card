@@ -72,6 +72,15 @@ function makeTex(text,opts){
   ctx.fillText(text,o.w/2,o.h/2);
   return new THREE.CanvasTexture(c);
 }
+function waitForMindAR(){
+  return new Promise(function(resolve,reject){
+    if(window.MINDAR&&window.MINDAR.IMAGE){resolve();return;}
+    var t=setTimeout(function(){reject(new Error('MindAR Timeout - Seite neu laden'));},20000);
+    var iv=setInterval(function(){
+      if(window.MINDAR&&window.MINDAR.IMAGE){clearInterval(iv);clearTimeout(t);resolve();}
+    },200);
+  });
+}
 async function startAR(){
   if(started||!CFG||!mindBuf)return;
   started=true;
@@ -80,6 +89,7 @@ async function startAR(){
   document.getElementById('spin').style.display='block';
   msg('Kamera startet...');
   try{
+    await waitForMindAR();
     var T=window.THREE;
     var mindUrl=URL.createObjectURL(new Blob([mindBuf],{type:'application/octet-stream'}));
     var ar=new window.MINDAR.IMAGE.MindARThree({
