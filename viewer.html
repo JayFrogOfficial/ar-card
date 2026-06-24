@@ -223,15 +223,15 @@ async function startAR(){
     var anchor=ar.addAnchor(0),g=anchor.group;
 
     var nm=new T.Mesh(
-      new T.PlaneGeometry(0.22,0.044),
+      new T.PlaneGeometry(0.9,0.18),
       new T.MeshBasicMaterial({map:makeTex(CFG.name,{w:1024,h:200,sz:110,color:'#FFD700'}),transparent:true,depthWrite:false}));
-    nm.position.set(0,0.088,0.001);g.add(nm);
+    nm.position.set(0,0.35,0.01);g.add(nm);
 
     if(CFG.subtitle){
       var sm=new T.Mesh(
-        new T.PlaneGeometry(0.18,0.026),
+        new T.PlaneGeometry(0.75,0.11),
         new T.MeshBasicMaterial({map:makeTex(CFG.subtitle,{w:800,h:110,sz:52,color:'#aaa',bold:false}),transparent:true,depthWrite:false}));
-      sm.position.set(0,0.054,0.001);g.add(sm);
+      sm.position.set(0,0.21,0.01);g.add(sm);
     }
 
     var BTNS=[
@@ -240,14 +240,14 @@ async function startAR(){
       {label:'Instagram',bg:'#C13584',url:CFG.links&&CFG.links.instagram}
     ].filter(function(b){return b.url&&b.url.startsWith('http');});
 
-    var clickables=[],bW=0.068,bH=0.02,gap=0.006;
+    var clickables=[],bW=0.26,bH=0.09,gap=0.03;
     var tot=BTNS.length*bW+(BTNS.length-1)*gap;
     BTNS.forEach(function(b,i){
       var x=-tot/2+bW/2+i*(bW+gap);
       var m=new T.Mesh(
         new T.PlaneGeometry(bW,bH),
         new T.MeshBasicMaterial({map:makeTex(b.label,{w:512,h:148,sz:44,color:'#fff',bg:b.bg})}));
-      m.position.set(x,0.018,0.001);m.userData.url=b.url;
+      m.position.set(x,0.08,0.01);m.userData.url=b.url;
       g.add(m);clickables.push(m);
     });
 
