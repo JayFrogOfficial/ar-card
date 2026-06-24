@@ -157,7 +157,20 @@ async function startAR(){
   document.getElementById('tap-hint').style.display='none';
   document.getElementById('splash-name').style.display='none';
   document.getElementById('spin').style.display='block';
-  msg('Kamera startet...');
+  msg('Kamera wird aktiviert...');
+  try{
+    // Request camera permission immediately while still in user-gesture context.
+    // iOS Safari loses the gesture token across arbitrary awaits inside ar.start(),
+    // so we grab the stream here first, then let MindAR re-request it.
+    var camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    camStream.getTracks().forEach(function(t){t.stop();});
+  }catch(e){
+    msg('Kein Kamerazugriff: '+e.message);
+    document.getElementById('spin').style.display='none';
+    started=false;
+    return;
+  }
+  msg('AR wird geladen...');
   try{
     var T=window.THREE;
     var mindUrl=URL.createObjectURL(new Blob([mindBuf],{type:'application/octet-stream'}));
