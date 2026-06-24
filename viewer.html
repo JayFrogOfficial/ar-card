@@ -90,6 +90,17 @@ html,body{background:#000;overflow:hidden;width:100%;height:100%}
 <div id="status"><div id="status-text">Visitenkarte anvisieren...</div></div>
 
 <script>
+// Force rear camera for every getUserMedia call (MindAR doesn't set facingMode)
+(function(){
+  var _orig=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  navigator.mediaDevices.getUserMedia=function(c){
+    if(c&&c.video){
+      c.video=Object.assign(typeof c.video==='object'?c.video:{},{facingMode:'environment'});
+    }
+    return _orig(c);
+  };
+})();
+
 var SB='https://lzzfaoekhnggeixgumfg.supabase.co',BKT='ar-cards';
 var CFG=null,mindBuf=null,started=false,dataReady=false;
 var id=new URLSearchParams(location.search).get('id');
