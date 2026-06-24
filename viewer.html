@@ -24,6 +24,13 @@ window.MINDAR = { IMAGE: { MindARThree } };
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:#000;overflow:hidden;width:100%;height:100%}
 
+/* MindAR container: fills viewport, hidden until AR starts */
+#ar-container{
+  position:fixed;inset:0;
+  width:100%;height:100%;
+  display:none;
+}
+
 #splash{
   position:fixed;inset:0;background:#000;
   display:flex;flex-direction:column;
@@ -65,7 +72,7 @@ html,body{background:#000;overflow:hidden;width:100%;height:100%}
 #status{
   position:fixed;bottom:28px;left:0;right:0;
   display:flex;justify-content:center;
-  z-index:10;pointer-events:none;
+  z-index:200;pointer-events:none;
 }
 #status-text{
   padding:10px 22px;
@@ -80,6 +87,8 @@ html,body{background:#000;overflow:hidden;width:100%;height:100%}
 </head>
 <body>
 
+<div id="ar-container"></div>
+
 <div id="splash" onclick="handleTap()">
   <div class="spin" id="spin"></div>
   <div id="splash-name"></div>
@@ -90,7 +99,7 @@ html,body{background:#000;overflow:hidden;width:100%;height:100%}
 <div id="status"><div id="status-text">Visitenkarte anvisieren...</div></div>
 
 <script>
-// Force rear camera for every getUserMedia call (MindAR doesn't set facingMode)
+// Patch 1: Force rear camera on every getUserMedia call
 (function(){
   var _orig=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   navigator.mediaDevices.getUserMedia=function(c){
@@ -98,6 +107,22 @@ html,body{background:#000;overflow:hidden;width:100%;height:100%}
       c.video=Object.assign(typeof c.video==='object'?c.video:{},{facingMode:'environment'});
     }
     return _orig(c);
+  };
+})();
+
+// Patch 2: Any <video> MindAR creates gets playsinline + muted immediately,
+// which is required for iOS Safari to display video inline.
+(function(){
+  var _origCE=document.createElement.bind(document);
+  document.createElement=function(tag){
+    var el=_origCE(tag);
+    if(typeof tag==='string'&&tag.toLowerCase()==='video'){
+      el.setAttribute('playsinline','');
+      el.setAttribute('webkit-playsinline','');
+      el.muted=true;
+      el.autoplay=true;
+    }
+    return el;
   };
 })();
 
@@ -151,7 +176,7 @@ function makeTex(text,opts){
   ctx.font=(o.bold?'bold ':'')+o.sz+'px -apple-system,sans-serif';
   ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillText(text,o.w/2,o.h/2);
-  return new THREE.CanvasTexture(c);
+  return new window.THREE.CanvasTexture(c);
 }
 
 function handleTap(){
@@ -170,9 +195,8 @@ async function startAR(){
   document.getElementById('spin').style.display='block';
   msg('Kamera wird aktiviert...');
   try{
-    // Request camera permission immediately while still in user-gesture context.
-    // iOS Safari loses the gesture token across arbitrary awaits inside ar.start(),
-    // so we grab the stream here first, then let MindAR re-request it.
+    // Grab camera permission while user-gesture token is fresh.
+    // Keep stream open so iOS doesn't revoke the camera before MindAR starts.
     var camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
     camStream.getTracks().forEach(function(t){t.stop();});
   }catch(e){
@@ -184,9 +208,12 @@ async function startAR(){
   msg('AR wird geladen...');
   try{
     var T=window.THREE;
+    var container=document.getElementById('ar-container');
+    container.style.display='block';
+
     var mindUrl=URL.createObjectURL(new Blob([mindBuf],{type:'application/octet-stream'}));
     var ar=new window.MINDAR.IMAGE.MindARThree({
-      container:document.body,
+      container:container,
       imageTargetSrc:mindUrl,
       uiLoading:'no',uiError:'no',uiScanning:'no'
     });
@@ -241,11 +268,21 @@ async function startAR(){
     anchor.onTargetLost=function(){st.textContent='Visitenkarte anvisieren...';st.classList.remove('ok');};
 
     await ar.start();
+
+    // After start: ensure any video MindAR added is actually playing
+    container.querySelectorAll('video').forEach(function(v){
+      v.setAttribute('playsinline','');
+      v.setAttribute('webkit-playsinline','');
+      v.muted=true;
+      if(v.paused)v.play().catch(function(){});
+    });
+
     document.getElementById('splash').style.display='none';
     renderer.setAnimationLoop(function(){renderer.render(scene,camera);});
   }catch(e){
     msg('Fehler: '+e.message);
     document.getElementById('spin').style.display='none';
+    document.getElementById('ar-container').style.display='none';
     started=false;
     console.error(e);
   }
