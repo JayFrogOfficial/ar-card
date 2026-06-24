@@ -223,15 +223,15 @@ async function startAR(){
     var anchor=ar.addAnchor(0),g=anchor.group;
 
     var nm=new T.Mesh(
-      new T.PlaneGeometry(0.9,0.18),
-      new T.MeshBasicMaterial({map:makeTex(CFG.name,{w:1024,h:200,sz:110,color:'#FFD700'}),transparent:true,depthWrite:false}));
-    nm.position.set(0,0.35,0.01);g.add(nm);
+      new T.PlaneGeometry(3.0,0.6),
+      new T.MeshBasicMaterial({map:makeTex(CFG.name,{w:1024,h:200,sz:140,color:'#FFD700'}),transparent:true,depthWrite:false}));
+    nm.position.set(0,1.1,0.05);g.add(nm);
 
     if(CFG.subtitle){
       var sm=new T.Mesh(
-        new T.PlaneGeometry(0.75,0.11),
-        new T.MeshBasicMaterial({map:makeTex(CFG.subtitle,{w:800,h:110,sz:52,color:'#aaa',bold:false}),transparent:true,depthWrite:false}));
-      sm.position.set(0,0.21,0.01);g.add(sm);
+        new T.PlaneGeometry(2.5,0.38),
+        new T.MeshBasicMaterial({map:makeTex(CFG.subtitle,{w:800,h:120,sz:70,color:'#aaa',bold:false}),transparent:true,depthWrite:false}));
+      sm.position.set(0,0.6,0.05);g.add(sm);
     }
 
     var BTNS=[
@@ -240,23 +240,23 @@ async function startAR(){
       {label:'Instagram',bg:'#C13584',url:CFG.links&&CFG.links.instagram}
     ].filter(function(b){return b.url&&b.url.startsWith('http');});
 
-    var clickables=[],bW=0.26,bH=0.09,gap=0.03;
+    var clickables=[],bW=0.85,bH=0.28,gap=0.1;
     var tot=BTNS.length*bW+(BTNS.length-1)*gap;
     BTNS.forEach(function(b,i){
       var x=-tot/2+bW/2+i*(bW+gap);
       var m=new T.Mesh(
         new T.PlaneGeometry(bW,bH),
-        new T.MeshBasicMaterial({map:makeTex(b.label,{w:512,h:148,sz:44,color:'#fff',bg:b.bg})}));
-      m.position.set(x,0.08,0.01);m.userData.url=b.url;
+        new T.MeshBasicMaterial({map:makeTex(b.label,{w:512,h:160,sz:60,color:'#fff',bg:b.bg})}));
+      m.position.set(x,0.1,0.05);m.userData.url=b.url;
       g.add(m);clickables.push(m);
     });
 
     var ray=new T.Raycaster();
     function onTap(e){
-      var r=renderer.domElement.getBoundingClientRect();
+      // Use full viewport dimensions — canvas always fills the screen
       var cx=e.touches?e.changedTouches[0].clientX:e.clientX;
       var cy=e.touches?e.changedTouches[0].clientY:e.clientY;
-      ray.setFromCamera({x:((cx-r.left)/r.width)*2-1,y:-((cy-r.top)/r.height)*2+1},camera);
+      ray.setFromCamera({x:(cx/window.innerWidth)*2-1,y:-(cy/window.innerHeight)*2+1},camera);
       var h=ray.intersectObjects(clickables);
       if(h.length)window.open(h[0].object.userData.url,'_blank');
     }
